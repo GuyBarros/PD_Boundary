@@ -1,0 +1,45 @@
+# PD_Boundary
+
+## Overview
+This repository, `PD_Boundary`, is designed to configure a test enviroment to test ssh with credential injection being accessed by multi hop workers.
+
+#
+## Installation
+To get started, clone the repository and install the required dependencies:
+Boundary ClI
+Boundary Desktop
+Vault ClI
+
+create a .env file with all the relevant information (copy the .env.example and change the correct values)
+
+## Usage
+
+### Setup
+to use this lab run the 0_setup.sh script
+
+```bash
+chmod +x 0_setup.sh
+./0_setup.sh
+```
+
+### Destroy
+to stop using this lab and destroy the config (so you can reuse it again another day)
+```bash
+chmod +x 99_destroy-lab.sh
+./99_destroy-lab.sh
+```
+
+
+## Contributing
+Contributions are welcome! Please follow these steps:
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature-branch`).
+3. Commit your changes (`git commit -m "Add feature"`).
+4. Push to the branch (`git push origin feature-branch`).
+5. Open a pull request.
+
+## License
+This project is licensed under the [Apache] License. See the `LICENSE` file for details.
+
+## Contact
+For questions or feedback, please contact [your email or GitHub profile link].
