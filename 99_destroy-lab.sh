@@ -36,15 +36,22 @@ for WORKER in $WORKER_DEL; do
     echo "Deleted worker: $WORKER"
 done
 
-docker stop boundary-target
-docker rm boundary-target
+docker stop boundary-static-target
+docker rm boundary-static-target
+
+docker stop boundary-vault-target
+docker rm boundary-vault-target
 
 docker stop boundary-worker
 docker rm boundary-worker
 
 rm -rf ./file
 rm -rf ./recording
-rm id_rsa id_rsa.pub config.hcl
+rm -rf ./ca
+rm -rf ./custom-cont-init.d
+rm id_rsa id_rsa.pub config.hcl trusted-user-ca-keys.pem
 
+vault policy delete superuser_$(date +%Y%m%d)
+vault secrets disable ssh
 #optional
 # rm id_rsa id_rsa.pub config.hcl

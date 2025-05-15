@@ -39,7 +39,7 @@ ssh-keygen -t rsa -b 4096 -N '' -qf ./id_rsa
 echo "Creating SSH Target"
 # Boundary Target
 docker run -d \
-  --name=boundary-target \
+  --name=boundary-static-target \
   --hostname=demo-server \
   -e PUID=1000 \
   -e PGID=1000 \
@@ -53,7 +53,7 @@ docker run -d \
   --restart unless-stopped \
   lscr.io/linuxserver/openssh-server:latest
 
-export HOSTIP=$(docker inspect   -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' boundary-target)
+export STATIC_HOSTIP=$(docker inspect   -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' boundary-static-target)
 
 ####################
 ### DEPLOY BOUNDARY ORGS AND PROJECTS
@@ -76,8 +76,8 @@ export PROJECT_ID=$(boundary scopes create \
 echo "Creating Generic TCP Target"
 export LINUX_TCP_TARGET=$(boundary targets create tcp \
    -name="Linux TCP" \
-   -description="Linux server with tcp" \
-   -address=$HOSTIP \
+   -description="Linux server with tcp and Boundary cred store" \
+   -address=$STATIC_HOSTIP \
    -default-port=2222 \
    -scope-id=$PROJECT_ID \
    -egress-worker-filter='"dockerlab" in "/tags/type"' \
@@ -88,8 +88,8 @@ export LINUX_TCP_TARGET=$(boundary targets create tcp \
 echo "Creating SHH Target with Credential Injection"
 export LINUX_SSH_TARGET=$(boundary targets create ssh \
    -name="Linux Cred Injection" \
-   -description="Linux server with SSH Injection" \
-   -address=$HOSTIP \
+   -description="Linux server with SSH Injection and Boundary cred store" \
+   -address=$STATIC_HOSTIP \
    -default-port=2222 \
    -scope-id=$PROJECT_ID \
    -egress-worker-filter='"dockerlab" in "/tags/type"' \
@@ -113,9 +113,150 @@ export BOUNDARY_CRED_UPW=$(boundary credentials create username-password \
  -format=json | jq -r '.item.id')
 
 ### ADD CREDENTIALS
-boundary targets add-credential-sources \
+export BOUNDARY_CRED_INJECTED=$(boundary targets add-credential-sources \
 -id=$LINUX_SSH_TARGET \
 -injected-application-credential-source=$BOUNDARY_CRED_UPW \
--token env://BOUNDARY_TOKEN 
+-token env://BOUNDARY_TOKEN \
+-format=json | jq -r '.item.id')
+
+### ADD Configure Vault
+echo "Configuring Vault for secret store"
+echo "--> configure superuser role"
+
+
+vault policy write superuser_$(date +%Y%m%d) - <<EOR
+path "*" {
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+  }
+
+  path "kv/*" {
+    capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+
+path "kv/test/*" {
+    capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+
+path "pki/*" {
+    capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+
+path "sys/control-group/authorize" {
+    capabilities = ["create", "update"]
+}
+
+# To check control group request status
+path "sys/control-group/request" {
+    capabilities = ["create", "update"]
+}
+
+# all access to boundary namespace
+path "boundary/*" {
+    capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+EOR
+
+# Create a token with the superuser policy
+export VAULT_CRED_STORE_TOKEN=$(vault token create -policy=superuser_$(date +%Y%m%d) -format=json -orphan -period=72h -display-name="boundary_cred_store_$(date +%Y%m%d)" | jq -r .auth.client_token)
+
+export BOUNDARY_VAULT_CRED_STORE_ID=$(boundary credential-stores create vault \
+-name="Boundary Vault Cred Store" \
+ -scope-id=$PROJECT_ID \
+  -vault-address=$VAULT_ADDR \
+  -vault-token=$VAULT_CRED_STORE_TOKEN \
+  -vault-namespace=$VAULT_NAMESPACE \
+ -token env://BOUNDARY_TOKEN \
+ -format=json | jq -r '.item.id')
+
+# Mount SSH secrets engine
+vault secrets enable -path=ssh ssh
+
+mkdir ca/ && mkdir custom-cont-init.d/
+
+vault write -format=json ssh/config/ca generate_signing_key=true | \
+    jq -r '.data.public_key' > ca/ca-key.pub
+
+cat > custom-cont-init.d/00-trust-user-ca -<<EOF
+#!/usr/bin/with-contenv bash
+
+cp /ca/ca-key.pub /etc/ssh/ca-key.pub
+chown 1000:1000 /etc/ssh/ca-key.pub
+chmod 644 /etc/ssh/ca-key.pub
+echo TrustedUserCAKeys /etc/ssh/ca-key.pub >> /etc/ssh/sshd_config
+echo PermitTTY yes >> /etc/ssh/sshd_config
+sed -i 's/X11Forwarding no/X11Forwarding yes/' /etc/ssh/sshd_config
+echo "X11UseLocalhost no" >> /etc/ssh/sshd_config
+
+apk update
+apk add xterm util-linux dbus ttf-freefont xauth firefox
+cat etc/ssh/sshd_config
+cat /etc/ssh/ca-key.pub
+EOF
+
+
+vault write ssh/roles/my-role -<<EOH
+{
+  "algorithm_signer": "rsa-sha2-256",
+  "allow_user_certificates": true,
+  "allowed_users": "*",
+  "allowed_extensions": "permit-pty,permit-port-forwarding",
+  "default_extensions": {
+    "permit-pty": ""
+  },
+  "key_type": "ca",
+  "default_user": "$SSH_USER"
+}
+EOH
+
+export VAULT_SSH_CRED_LIBRARY=$(boundary credential-libraries create vault-ssh-certificate \
+ -name="ssh-vault" \
+ -credential-store-id="$BOUNDARY_VAULT_CRED_STORE_ID" \
+ -vault-path="ssh/sign/my-role" \
+ -username="$SSH_USER" \
+ -key-type="rsa" \
+ -token env://BOUNDARY_TOKEN \
+ -format=json | jq -r '.item.id')
+
+
+echo "Creating SSH Target"
+# Startign Boundary Target
+docker run -d \
+  --name=boundary-vault-target \
+  --hostname=demo-vault-server \
+  -e PUID=1000 \
+  -e PGID=1000 \
+  -e TZ=Etc/UTC \
+  -e PASSWORD_ACCESS=true \
+  -e USER_PASSWORD=$SSH_PASSWORD \
+  -e USER_NAME=$SSH_USER  \
+  -e SUDO_ACCESS=false \
+  -v "$(pwd)/ca":/ca \
+  -v "$(pwd)/custom-cont-init.d":/custom-cont-init.d \
+  -p 2223:2222 \
+  --restart unless-stopped \
+  lscr.io/linuxserver/openssh-server:latest
+
+export HOSTIP_VAULT=$(docker inspect   -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' boundary-vault-target)
+
+#create a new target 
+echo "Creating SHH Target with Credential Injection"
+export VAULT_LINUX_SSH_TARGET=$(boundary targets create ssh \
+   -name="Vault Linux Cred Injection" \
+   -description="Linux server with SSH Injection and Vault cred store" \
+   -address=$HOSTIP_VAULT \
+   -default-port=2223 \
+   -scope-id=$PROJECT_ID \
+   -egress-worker-filter='"dockerlab" in "/tags/type"' \
+   -with-alias-value="vault.ssh.target" \
+   -token env://BOUNDARY_TOKEN \
+   -format=json | jq -r '.item.id')
+
+export BOUNDARY_VAULT_CRED_INJECTED=$(boundary targets add-credential-sources \
+  -id=$VAULT_LINUX_SSH_TARGET \
+  -injected-application-credential-source=$VAULT_SSH_CRED_LIBRARY \
+  -token env://BOUNDARY_TOKEN \
+  -format=json | jq -r '.item.id')
 
 echo "Boundary Lab is ready to go!"
+
+export BOUNDARY_VAULT_CRED_STORE_ID=csvlt_oXjUqirsuu
