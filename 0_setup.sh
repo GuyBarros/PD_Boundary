@@ -196,15 +196,14 @@ EOF
 
 vault write ssh/roles/my-role -<<EOH
 {
-  "algorithm_signer": "rsa-sha2-256",
-  "allow_user_certificates": true,
-  "allowed_users": "*",
-  "allowed_extensions": "permit-pty,permit-port-forwarding",
-  "default_extensions": {
-    "permit-pty": ""
-  },
-  "key_type": "ca",
-  "default_user": "$SSH_USER"
+    "key_type": "ca",
+    "allow_user_certificates": true,
+    "default_user": "$SSH_USER",
+    "default_extensions": {
+        "permit-pty": ""
+    },
+    "allowed_users": "*",
+    "allowed_extensions": "*"
 }
 EOH
 
@@ -213,7 +212,6 @@ export VAULT_SSH_CRED_LIBRARY=$(boundary credential-libraries create vault-ssh-c
  -credential-store-id="$BOUNDARY_VAULT_CRED_STORE_ID" \
  -vault-path="ssh/sign/my-role" \
  -username="$SSH_USER" \
- -key-type="rsa" \
  -token env://BOUNDARY_TOKEN \
  -format=json | jq -r '.item.id')
 
@@ -258,5 +256,3 @@ export BOUNDARY_VAULT_CRED_INJECTED=$(boundary targets add-credential-sources \
   -format=json | jq -r '.item.id')
 
 echo "Boundary Lab is ready to go!"
-
-export BOUNDARY_VAULT_CRED_STORE_ID=csvlt_oXjUqirsuu
