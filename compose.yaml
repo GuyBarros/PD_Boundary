@@ -1,0 +1,43 @@
+---
+services:
+  boundary-worker:
+    image: hashicorp/boundary-enterprise:latest
+    container_name: boundary-worker
+    ports:
+      - 9202:9202
+    volumes:
+      - .:/boundary/ 
+  boundary-vault-target:
+    image: lscr.io/linuxserver/openssh-server:latest
+    container_name: boundary-vault-target
+    hostname: demo-vault-server #optional
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - SUDO_ACCESS=false #optional
+      - PASSWORD_ACCESS=true #optional
+      - USER_PASSWORD=$SSH_PASSWORD #optional
+      - USER_NAME=$SSH_USER #optional
+    volumes:
+      - ./ca:/ca  
+      - ./custom-cont-init.d:/custom-cont-init.d
+    ports:
+      - 2222:2222
+    restart: unless-stopped
+  # boundary-static-target:
+  #   image: lscr.io/linuxserver/openssh-server:latest
+  #   container_name: boundary-static-target
+  #   hostname: demo-server #optional
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=Etc/UTC
+  #     - PUBLIC_KEY_FILE=./id_rsa.pub #optional
+  #     - SUDO_ACCESS=false #optional
+  #     - PASSWORD_ACCESS=true #optional
+  #     - USER_PASSWORD=$SSH_PASSWORD #optional
+  #     - USER_NAME=$SSH_USER #optional
+  #   ports:
+  #     - 2223:2222
+  #   restart: unless-stopped  
