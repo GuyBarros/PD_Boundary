@@ -48,6 +48,7 @@ export VAULT_LINUX_SSH_TARGET=$(boundary targets create ssh \
    -description="Linux server with SSH Injection and Vault cred store" \
    -address=$HOSTIP_VAULT \
    -default-port=2222 \
+   -default-client-port=22 \
    -scope-id=$PROJECT_ID \
    -egress-worker-filter='"dockerlab" in "/tags/type"' \
    -with-alias-value="vault.ssh.target" \

@@ -30,7 +30,7 @@ echo "Generating Boundary Worker Config"
 
 docker compose up -d
 
-export STATIC_HOSTIP=$(docker inspect   -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' boundary-static-target)
+#export STATIC_HOSTIP=$(docker inspect   -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' boundary-static-target)
 export HOSTIP_VAULT=$(docker inspect   -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' boundary-vault-target)
 
 ./configure_boundary.sh
