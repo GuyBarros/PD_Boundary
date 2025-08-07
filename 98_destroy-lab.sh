@@ -30,11 +30,15 @@ export WORKER_DEL=$(boundary workers list -format=json -token env://BOUNDARY_TOK
   done
 
 
-boundary scopes delete -id=$ORG_ID_DEL
+
 for WORKER in $WORKER_DEL; do
     boundary workers delete -id $WORKER -token env://BOUNDARY_TOKEN  
     echo "Deleted worker: $WORKER"
 done
+
+
+boundary scopes delete -id $ORG_ID_DEL -token env://BOUNDARY_TOKEN
+echo "Deleted scope: $ORG_ID_DEL"
 
 
 rm -rf ./file
