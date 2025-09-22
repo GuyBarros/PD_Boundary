@@ -4,14 +4,14 @@
 echo "Creating Boundary Organization"
 
 export ORG_ID=$(boundary scopes create \
- -scope-id=global -name="Docker Lab" \
- -description="Docker Org" \
+ -scope-id=global -name="podman Lab" \
+ -description="podman Org" \
  -token env://BOUNDARY_TOKEN \
  -format=json | jq -r '.item.id')
 
 echo "Creating Boundary Project"
 export PROJECT_ID=$(boundary scopes create \
- -scope-id=$ORG_ID -name="Docker Servers" \
+ -scope-id=$ORG_ID -name="podman Servers" \
  -description="Server Machines" \
  -token env://BOUNDARY_TOKEN \
  -format=json | jq -r '.item.id')
@@ -25,7 +25,7 @@ export PROJECT_ID=$(boundary scopes create \
 #    -address=$STATIC_HOSTIP \
 #    -default-port=2223 \
 #    -scope-id=$PROJECT_ID \
-#    -egress-worker-filter='"dockerlab" in "/tags/type"' \
+#    -egress-worker-filter='"podmanlab" in "/tags/type"' \
 #    -with-alias-value="manual.ssh.target" \
 #    -token env://BOUNDARY_TOKEN \
 #    -format=json | jq -r '.item.id')
@@ -37,7 +37,7 @@ export PROJECT_ID=$(boundary scopes create \
 #    -address=$STATIC_HOSTIP \
 #    -default-port=2223 \
 #    -scope-id=$PROJECT_ID \
-#    -egress-worker-filter='"dockerlab" in "/tags/type"' \
+#    -egress-worker-filter='"podmanlab" in "/tags/type"' \
 #    -with-alias-value="auto.ssh.target" \
 #    -token env://BOUNDARY_TOKEN \
 #    -format=json | jq -r '.item.id')
@@ -50,7 +50,7 @@ export VAULT_LINUX_SSH_TARGET=$(boundary targets create ssh \
    -default-port=2222 \
    -default-client-port=22 \
    -scope-id=$PROJECT_ID \
-   -egress-worker-filter='"dockerlab" in "/tags/type"' \
+   -egress-worker-filter='"podmanlab" in "/tags/type"' \
    -with-alias-value="vault.ssh.target" \
    -token env://BOUNDARY_TOKEN \
    -format=json | jq -r '.item.id')

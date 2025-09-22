@@ -4,8 +4,8 @@
 CONFIG_FILE="config.hcl"
 
 # Fetch the list of boundary workers in JSON format
-WORKERS_JSON=$(boundary workers list -format=json -token env://BOUNDARY_TOKEN)
-ENROLLMENT_TOKEN=$(boundary workers create controller-led -name docker-worker-$(date +%Y%m%d) -format=json -token env://BOUNDARY_TOKEN | jq -r .item.controller_generated_activation_token)
+WORKERS_JSON=$(boundary workers list -format=json -token env://BOUNDARY_TOKEN -filter='"hcp-managed-worker-" in "/item/name"')
+ENROLLMENT_TOKEN=$(boundary workers create controller-led -name podman-worker-$(date +%Y%m%d) -format=json -token env://BOUNDARY_TOKEN | jq -r .item.controller_generated_activation_token)
 
 # Extract the addresses from the JSON output
 ADDRESSES=$(echo "$WORKERS_JSON" | jq -r '.items[].address')
@@ -34,11 +34,11 @@ listener "tcp" {
 
 worker {
   $INITIAL_UPSTREAM
-  auth_storage_path = "/boundary/file/dockerlab"
+  auth_storage_path = "/boundary/file/podmanlab"
   recording_storage_path = "/boundary/recording/"
     controller_generated_activation_token = "$ENROLLMENT_TOKEN"
   tags {
-    type = ["dockerlab"]
+    type = ["podmanlab"]
   }
 }
 

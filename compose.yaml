@@ -15,7 +15,7 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
-      - SUDO_ACCESS=false #optional
+      - SUDO_ACCESS=false #optionalß
       - PASSWORD_ACCESS=true #optional
       - USER_PASSWORD=$SSH_PASSWORD #optional
       - USER_NAME=$SSH_USER #optional
@@ -25,6 +25,22 @@ services:
     ports:
       - 2222:2222
     restart: unless-stopped
+  webtop:
+    image: lscr.io/linuxserver/webtop:latest
+    container_name: webtop
+    security_opt:
+      - seccomp:unconfined #optional
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - SUBFOLDER=/ #optional
+      - TITLE=Webtop #optionalß
+    ports:
+      - 3000:3000
+      - 3001:3001
+    shm_size: "1gb" #optional
+    restart: unless-stopped  
   # boundary-static-target:
   #   image: lscr.io/linuxserver/openssh-server:latest
   #   container_name: boundary-static-target

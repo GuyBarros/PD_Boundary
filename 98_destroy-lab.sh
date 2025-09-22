@@ -5,7 +5,7 @@ echo "Deleting Boundary Lab"
 #get the Boundary credentials from Vault
 VAULT_LOGIN=$(vault login -method=userpass -format=json username=$VAULT_USER  password=$VAULT_PASSWORD)
 
-VAULT_SECRETS=$(vault kv get -format=json -namespace=admin -mount="kv" "boundary_auth" | jq -r '.data.data')
+VAULT_SECRETS=$(vault kv get -format=json -namespace=$VAULT_NAMESPACE -mount="kv" "boundary_auth" | jq -r '.data.data')
 
 export BOUNDARY_AUTH_METHOD=$(echo $VAULT_SECRETS | jq -r '.auth_method')
 export BOUNDARY_USERNAME=$(echo $VAULT_SECRETS | jq -r '.username')
@@ -18,8 +18,8 @@ export BOUNDARY_TOKEN=$(echo $BOUNDARY_AUTH | jq -r .item.attributes.token)
 
 #######################################################
 #### to Destroy everything 
-export ORG_ID_DEL=$(boundary scopes list -format=json -token env://BOUNDARY_TOKEN | jq -r '.items[] | select(.name == "Docker Lab") | .id')
-export WORKER_DEL=$(boundary workers list -format=json -token env://BOUNDARY_TOKEN | jq -r '.items[] | select(.name | contains("docker")) | .id')
+export ORG_ID_DEL=$(boundary scopes list -format=json -token env://BOUNDARY_TOKEN | jq -r '.items[] | select(.name == "podman Lab") | .id')
+export WORKER_DEL=$(boundary workers list -format=json -token env://BOUNDARY_TOKEN | jq -r '.items[] | select(.name | contains("podman")) | .id')
 
   # Get all aliases for the target
   alias_ids=$(boundary  aliases list -format=json -token env://BOUNDARY_TOKEN | jq -r '.items[].id')
@@ -50,4 +50,4 @@ rm id_rsa id_rsa.pub config.hcl trusted-user-ca-keys.pem
 vault policy delete superuser_$(date +%Y%m%d)
 vault secrets disable ssh
 
-docker compose down
+podman compose down

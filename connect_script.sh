@@ -17,7 +17,7 @@ BOUNDARY_AUTH=$(boundary authenticate password -format json -auth-method-id $BOU
 export BOUNDARY_TOKEN=$(echo $BOUNDARY_AUTH | jq -r .item.attributes.token)
 
 # Configuration Variables
-export TARGET_ALIAS="auto.ssh.target"
+export TARGET_ALIAS="vault.ssh.target"
 
 # Start Boundary proxy in the background using coproc
 coproc BOUNDARY_PROXY ( boundary connect -target-id $TARGET_ALIAS -token env://BOUNDARY_TOKEN -format json )
